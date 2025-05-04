@@ -53,8 +53,7 @@ https://fakenewsdetection-7dpwxyaubtbvn9m7fvagsp.streamlit.app/
 ![Screenshot 2025-05-04 132532](https://github.com/user-attachments/assets/a54e4092-c37b-40bf-a9b6-61085c8462a3)
 
 **Confidence Visualization**
-(![Screenshot 2025-05-04 132546](https://github.com/user-attachments/assets/eab8c17e-79c1-45e8-969f-663e2df8a05b)
-)
+![Screenshot 2025-05-04 132546](https://github.com/user-attachments/assets/eab8c17e-79c1-45e8-969f-663e2df8a05b)
 
 ---
 
