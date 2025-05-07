@@ -1,3 +1,6 @@
+import streamlit as st
+st.set_page_config(page_title="Fake News Verifier", layout="centered")
+st.title("📰 Advanced Fake News Detector")
 import re
 import requests
 import time
@@ -96,9 +99,6 @@ def evaluate_news(query):
     }
 
 # --- Streamlit Interface ---
-st.set_page_config(page_title="Fake News Verifier", layout="centered")
-st.title("📰 Advanced Fake News Detector")
-
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
