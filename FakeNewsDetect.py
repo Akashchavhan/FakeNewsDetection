@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from transformers import pipeline
 
 # Set up summarization pipeline
-summarizer = pipeline("summarization", model="./distilbart-cnn-12-6", local_files_only=True)
+summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
 # Trusted news sources
 TRUSTED_SOURCES = [
