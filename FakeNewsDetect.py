@@ -8,69 +8,44 @@ import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from transformers import pipeline
-from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
-import plotly.graph_objects as go  # For animated confidence gauge
+from serpapi import GoogleSearch
+import plotly.graph_objects as go
 
-# --- Caching the model to avoid reloading ---
 @st.cache_resource
 def load_summarizer():
     return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
 summarizer = load_summarizer()
 
-# --- Expanded Trusted sources list ---
 TRUSTED_SOURCES = [
-    "bbc.com",
-    "reuters.com",
-    "ndtv.com",
-    "cnn.com",
-    "indiatoday.in",
-    "thehindu.com",
-    "indianexpress.com",
-    "timesofindia.indiatimes.com",
-    "hindustantimes.com",
-    "aljazeera.com",
-    "apnews.com",
-    "foxnews.com",
-    "washingtonpost.com",
-    "nytimes.com",
-    "economictimes.indiatimes.com",
-    "scroll.in",
-    "bbc.co.uk",
-    "cbc.ca",
-    "theguardian.com",
-    "cnbc.com",
-    "dw.com",
-    "npr.org",
-    "bbcnews.com",
-    "news18.com",
-    "thewire.in"
+    "bbc.com", "reuters.com", "ndtv.com", "cnn.com", "indiatoday.in",
+    "thehindu.com", "timesofindia.indiatimes.com", "hindustantimes.com",
+    "aljazeera.com", "apnews.com", "foxnews.com", "washingtonpost.com",
+    "nytimes.com", "economictimes.indiatimes.com", "scroll.in", "bbc.co.uk",
+    "cbc.ca", "theguardian.com", "cnbc.com", "dw.com", "npr.org",
+    "bbcnews.com", "news18.com", "thewire.in", "indianexpress.com"
 ]
 
-# --- Text cleaning ---
 def clean_text(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
-# --- Trusted source checker with partial matching ---
 def is_trusted_source(url):
     domain = urlparse(url).netloc.replace("www.", "").lower()
     return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
 
-# --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
     matches = []
     try:
         params = {
             "engine": "google",
             "q": query,
-            "api_key": st.secrets["SERPAPI_KEY"],  # Use Streamlit secrets here
+            "api_key": st.secrets["SERPAPI_KEY"],
             "num": max_results
         }
         search = GoogleSearch(params)
         results = search.get_dict()
-
         for result in results.get('organic_results', [])[:max_results]:
             url = result.get('link')
             if not url or not url.startswith("http"):
@@ -84,7 +59,7 @@ def search_news(query, max_results=5):
                 text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
                 if text_snippet.strip():
                     matches.append((url, text_snippet))
-                time.sleep(1)  # To avoid hammering servers
+                time.sleep(1)
             except Exception as e:
                 print(f"Error processing {url}: {e}")
                 continue
@@ -92,16 +67,13 @@ def search_news(query, max_results=5):
         st.error(f"❌ Search error: {e}")
     return matches
 
-# --- Evaluation Logic ---
 def evaluate_news(query):
     matches = search_news(query)
     trusted_hits = []
     total_hits = len(matches)
-
     for url, snippet in matches:
         if is_trusted_source(url):
             trusted_hits.append((url, snippet))
-
     if total_hits == 0:
         return {
             "status": "Unable to verify",
@@ -109,11 +81,8 @@ def evaluate_news(query):
             "matches": [],
             "summary": "No data found to summarize."
         }
-
     confidence = round((len(trusted_hits) / total_hits) * 100, 2)
     status = "REAL" if confidence >= 50 else "FAKE"
-
-    # Use trusted or fallback to all matches
     all_text = ' '.join(snippet for _, snippet in trusted_hits or matches)
     clean_input = clean_text(all_text)
     if len(clean_input.split()) > 20:
@@ -123,7 +92,6 @@ def evaluate_news(query):
             summary = f"Failed to summarize: {e}"
     else:
         summary = "Not enough data to generate a reliable summary."
-
     return {
         "status": status,
         "confidence": confidence,
@@ -131,12 +99,11 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Animated confidence gauge using Plotly ---
 def animated_confidence_gauge(confidence, status):
-    bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"  # green or red
+    bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
     step_colors = ["#d5f5e3", "#abebc6", "#82d18a", "#52c41a", "#2ecc71"] if status == "REAL" else ["#fdecea", "#f9bdbb", "#f38a7d", "#ed6a5a", "#e74c3c"]
 
-    steps = 30  # number of frames for animation
+    steps = 30
     values = [confidence * i / steps for i in range(steps + 1)]
 
     frames = []
@@ -168,50 +135,21 @@ def animated_confidence_gauge(confidence, status):
             }
         )]))
 
-    fig = go.Figure(
-        data=frames[0].data,
-        frames=frames[1:]
-    )
-
+    fig = go.Figure(data=frames[0].data, frames=frames[1:])
     fig.update_layout(
         height=350,
         margin={'t': 50, 'b': 0, 'l': 0, 'r': 0},
         paper_bgcolor='rgba(240,240,240,0.95)',
         font=dict(family="Helvetica, Arial, sans-serif", color="black"),
-        annotations=[
-            dict(
-                x=0.5,
-                y=0,
-                showarrow=False,
-                text="Threshold at 50% confidence",
-                font=dict(size=12, color="blue"),
-                xanchor='center',
-                yanchor='top',
-            )
-        ],
-        updatemenus=[{
-            'type': 'buttons',
-            'showactive': False,
-            'buttons': [],
-            'visible': False,  # hide buttons
-        }]
+        annotations=[dict(x=0.5, y=0, showarrow=False, text="Threshold at 50% confidence",
+                          font=dict(size=12, color="blue"), xanchor='center', yanchor='top')],
+        updatemenus=[{'type': 'buttons', 'showactive': False, 'buttons': [], 'visible': False}]
     )
-
-    # Trick to autoplay animation on load without controls
-    fig.update_layout(
-        sliders=[],
-        updatemenus=[]
-    )
-
-    # The animation settings: play all frames on load
-    fig.layout.update(
-        transition={'duration': 50, 'easing': 'linear'},
-        frame={'duration': 50, 'redraw': True},
-    )
+    fig.update_layout(sliders=[], updatemenus=[])
+    fig.layout.update(transition={'duration': 50, 'easing': 'linear'}, frame={'duration': 50, 'redraw': True})
 
     return fig
 
-# --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
