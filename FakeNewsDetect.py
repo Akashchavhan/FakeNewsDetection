@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import matplotlib.pyplot as plt
 from transformers import pipeline
+from serpapi import GoogleSearch  # New import
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -34,63 +35,38 @@ def is_trusted_source(url):
     domain = urlparse(url).netloc.replace("www.", "")
     return domain in TRUSTED_SOURCES
 
-# --- Google search + content extraction ---
+# --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
     matches = []
     try:
-        # Construct the Google search URL
-        query = query.replace(' ', '+')
-        url = f"https://www.google.com/search?q={query}&num={max_results}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/115.0.0.0 Safari/537.36"
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": "YOUR_SERPAPI_API_KEY",  # Replace here with your SerpAPI key
+            "num": max_results
         }
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code != 200:
-            st.error(f"Google search request failed with status code {response.status_code}")
-            return matches
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
+        search = GoogleSearch(params)
+        results = search.get_dict()
 
-        # Google search result containers
-        search_results = soup.select('div.g')
-        count = 0
-        
-        for result in search_results:
-            if count >= max_results:
-                break
-            
-            link_tag = result.find('a', href=True)
-            if link_tag:
-                link = link_tag['href']
-                if link.startswith('/url?q='):
-                    link = link[7:]
-                    link = link.split('&')[0]  # Clean URL
-                
-                if not link.startswith('http'):
+        for result in results.get('organic_results', [])[:max_results]:
+            url = result.get('link')
+            if not url or not url.startswith("http"):
+                continue
+            try:
+                response = requests.get(url, timeout=10)
+                if response.status_code != 200:
                     continue
-                
-                try:
-                    page_response = requests.get(link, timeout=10)
-                    if page_response.status_code != 200:
-                        continue
-                    
-                    page_soup = BeautifulSoup(page_response.text, 'html.parser')
-                    paragraphs = page_soup.find_all('p')
-                    text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
-                    if text_snippet.strip():
-                        matches.append((link, text_snippet))
-                        count += 1
-                except Exception as e:
-                    print(f"Error processing {link}: {e}")
-                    continue
-                
-                time.sleep(1)  # to avoid being blocked
-                
+                soup = BeautifulSoup(response.text, 'html.parser')
+                paragraphs = soup.find_all('p')
+                text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
+                if text_snippet.strip():
+                    matches.append((url, text_snippet))
+                time.sleep(1)  # To avoid hammering servers
+            except Exception as e:
+                print(f"Error processing {url}: {e}")
+                continue
     except Exception as e:
-        st.error(f"❌ Google search error: {e}")
-    
+        st.error(f"❌ Search error: {e}")
     return matches
 
 # --- Evaluation Logic ---
