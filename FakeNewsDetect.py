@@ -9,11 +9,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import matplotlib.pyplot as plt
 from transformers import pipeline
-from serpapi import GoogleSearch
-import plotly.graph_objects as go
-
-# Get API key from Streamlit secrets
-api_key = st.secrets["SERPAPI_KEY"]
+from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
+import plotly.graph_objects as go  # For animated confidence gauge
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -22,6 +19,7 @@ def load_summarizer():
 
 summarizer = load_summarizer()
 
+# --- Expanded Trusted sources list ---
 TRUSTED_SOURCES = [
     "bbc.com",
     "reuters.com",
@@ -29,7 +27,6 @@ TRUSTED_SOURCES = [
     "cnn.com",
     "indiatoday.in",
     "thehindu.com",
-    "indianexpress.com",
     "timesofindia.indiatimes.com",
     "hindustantimes.com",
     "aljazeera.com",
@@ -50,22 +47,25 @@ TRUSTED_SOURCES = [
     "thewire.in"
 ]
 
+# --- Text cleaning ---
 def clean_text(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
+# --- Trusted source checker with partial matching ---
 def is_trusted_source(url):
     domain = urlparse(url).netloc.replace("www.", "").lower()
     return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
 
+# --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
     matches = []
     try:
         params = {
             "engine": "google",
             "q": query,
-            "api_key": api_key,  # Use secret here
+            "api_key": st.secrets["SERPAPI_KEY"],  # Use Streamlit secrets here
             "num": max_results
         }
         search = GoogleSearch(params)
@@ -84,7 +84,7 @@ def search_news(query, max_results=5):
                 text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
                 if text_snippet.strip():
                     matches.append((url, text_snippet))
-                time.sleep(1)
+                time.sleep(1)  # To avoid hammering servers
             except Exception as e:
                 print(f"Error processing {url}: {e}")
                 continue
@@ -92,6 +92,7 @@ def search_news(query, max_results=5):
         st.error(f"❌ Search error: {e}")
     return matches
 
+# --- Evaluation Logic ---
 def evaluate_news(query):
     matches = search_news(query)
     trusted_hits = []
@@ -112,6 +113,7 @@ def evaluate_news(query):
     confidence = round((len(trusted_hits) / total_hits) * 100, 2)
     status = "REAL" if confidence >= 50 else "FAKE"
 
+    # Use trusted or fallback to all matches
     all_text = ' '.join(snippet for _, snippet in trusted_hits or matches)
     clean_input = clean_text(all_text)
     if len(clean_input.split()) > 20:
@@ -129,6 +131,52 @@ def evaluate_news(query):
         "summary": summary
     }
 
+# --- Animated confidence gauge using Plotly ---
+def animated_confidence_gauge(confidence, status):
+    steps = 20  # Number of animation frames
+    values = [confidence * i / steps for i in range(steps + 1)]
+
+    frames = [go.Frame(data=[go.Indicator(
+                mode="gauge+number+delta",
+                value=val,
+                title={'text': "Confidence (%)"},
+                delta={'reference': 50, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
+                gauge={
+                    'axis': {'range': [0, 100]},
+                    'bar': {'color': "green" if status == 'REAL' else "red"},
+                    'steps': [
+                        {'range': [0, 49], 'color': 'red'},
+                        {'range': [50, 100], 'color': 'green'}
+                    ],
+                    'threshold': {
+                        'line': {'color': "blue", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 50
+                    }
+                }
+            )]) for val in values]
+
+    fig = go.Figure(
+        data=frames[0].data,
+        frames=frames[1:],
+    )
+
+    fig.update_layout(
+        height=300,
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': False,
+            'buttons': [{
+                'label': 'Play',
+                'method': 'animate',
+                'args': [None, {'frame': {'duration': 50, 'redraw': True}, 'fromcurrent': True, 'transition': {'duration': 0}}],
+            }]
+        }]
+    )
+
+    return fig
+
+# --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
@@ -152,27 +200,7 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-        fig = go.Figure()
-        fig.add_trace(go.Indicator(
-            mode="gauge+number+delta",
-            value=result['confidence'],
-            title={'text': "Confidence (%)"},
-            delta={'reference': 50, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': "green" if result['status'] == 'REAL' else "red"},
-                'steps': [
-                    {'range': [0, 49], 'color': 'red'},
-                    {'range': [50, 100], 'color': 'green'}
-                ],
-                'threshold': {
-                    'line': {'color': "blue", 'width': 4},
-                    'thickness': 0.75,
-                    'value': 50
-                }
-            }
-        ))
-        fig.update_layout(height=300)
+        fig = animated_confidence_gauge(result['confidence'], result['status'])
         st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
