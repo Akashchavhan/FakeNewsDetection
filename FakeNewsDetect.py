@@ -130,6 +130,3 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
-
-
-
