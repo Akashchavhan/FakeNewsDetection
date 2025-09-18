@@ -60,8 +60,7 @@ def search_news(query, max_results=5):
                 if text_snippet.strip():
                     matches.append((url, text_snippet))
                 time.sleep(1)
-            except Exception as e:
-                print(f"Error processing {url}: {e}")
+            except Exception:
                 continue
     except Exception as e:
         st.error(f"❌ Search error: {e}")
@@ -101,55 +100,66 @@ def evaluate_news(query):
 
 def animated_confidence_gauge(confidence, status):
     bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
-    step_colors = ["#d5f5e3", "#abebc6", "#82d18a", "#52c41a", "#2ecc71"] if status == "REAL" else ["#fdecea", "#f9bdbb", "#f38a7d", "#ed6a5a", "#e74c3c"]
-
-    steps = 30
-    values = [confidence * i / steps for i in range(steps + 1)]
-
-    frames = []
-    for val in values:
-        frames.append(go.Frame(data=[go.Indicator(
-            mode="gauge+number+delta",
-            value=val,
-            number={'font': {'size': 48, 'color': bar_color}, 'suffix': "%"},
-            delta={'reference': 50, 'increasing': {'color': "#2ecc71"}, 'decreasing': {'color': "#e74c3c"}},
-            title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'color': 'black'}},
-            gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray", 'nticks': 10},
-                'bar': {'color': bar_color, 'thickness': 0.3},
-                'bgcolor': "white",
-                'borderwidth': 2,
-                'bordercolor': "lightgray",
-                'steps': [
-                    {'range': [0, 20], 'color': step_colors[0]},
-                    {'range': [20, 40], 'color': step_colors[1]},
-                    {'range': [40, 60], 'color': step_colors[2]},
-                    {'range': [60, 80], 'color': step_colors[3]},
-                    {'range': [80, 100], 'color': step_colors[4]},
-                ],
-                'threshold': {
-                    'line': {'color': "blue", 'width': 5},
-                    'thickness': 0.85,
-                    'value': 50,
-                }
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=0,  # start at 0, will animate to actual confidence
+        number={'suffix': "%", 'font': {'size': 48, 'color': bar_color}},
+        delta={'reference': 50, 'increasing': {'color': "#2ecc71"}, 'decreasing': {'color': "#e74c3c"}},
+        title={'text': "<b>Confidence</b>", 'font': {'size': 24}},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
+            'bar': {'color': bar_color, 'thickness': 0.3},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "lightgray",
+            'steps': [
+                {'range': [0, 20], 'color': "#fdecea"},
+                {'range': [20, 40], 'color': "#f9bdbb"},
+                {'range': [40, 60], 'color': "#f38a7d"},
+                {'range': [60, 80], 'color': "#ed6a5a"},
+                {'range': [80, 100], 'color': "#e74c3c"} if status == "FAKE" else {'range': [80, 100], 'color': "#2ecc71"},
+            ],
+            'threshold': {
+                'line': {'color': "blue", 'width': 4},
+                'thickness': 0.75,
+                'value': 50
             }
-        )]))
+        }
+    ))
 
-    fig = go.Figure(data=frames[0].data, frames=frames[1:])
+    # Animate using frame generator
+    frames = [go.Frame(data=[go.Indicator(value=v)]) for v in range(0, int(confidence) + 1)]
+    fig.frames = frames
+
     fig.update_layout(
         height=350,
-        margin={'t': 50, 'b': 0, 'l': 0, 'r': 0},
-        paper_bgcolor='rgba(240,240,240,0.95)',
-        font=dict(family="Helvetica, Arial, sans-serif", color="black"),
-        annotations=[dict(x=0.5, y=0, showarrow=False, text="Threshold at 50% confidence",
-                          font=dict(size=12, color="blue"), xanchor='center', yanchor='top')],
-        updatemenus=[{'type': 'buttons', 'showactive': False, 'buttons': [], 'visible': False}]
+        margin=dict(t=40, b=20, l=10, r=10),
+        paper_bgcolor='white',
+        template='plotly_white',
+        updatemenus=[dict(
+            type="buttons",
+            showactive=False,
+            buttons=[dict(label="Play", method="animate", args=[None, {
+                "frame": {"duration": 30, "redraw": True},
+                "fromcurrent": True,
+                "transition": {"duration": 0}
+            }])],
+            x=0.1, y=0
+        )],
+        sliders=[{
+            "steps": [{
+                "args": [[f.name], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                "label": str(i),
+                "method": "animate"
+            } for i, f in enumerate(fig.frames)],
+            "transition": {"duration": 0},
+            "x": 0, "len": 1.0
+        }]
     )
-    fig.update_layout(sliders=[], updatemenus=[])
-    fig.layout.update(transition={'duration': 50, 'easing': 'linear'}, frame={'duration': 50, 'redraw': True})
 
     return fig
 
+# --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
