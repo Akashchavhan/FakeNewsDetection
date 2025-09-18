@@ -5,7 +5,7 @@ import re
 import requests
 import time
 from bs4 import BeautifulSoup
-from google_search import search
+from google-search import search
 from urllib.parse import urlparse
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -130,4 +130,5 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
+
 
