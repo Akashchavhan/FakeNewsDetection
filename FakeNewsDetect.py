@@ -7,10 +7,13 @@ import requests
 import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-import matplotlib.pyplot as plt  # (Still imported in case you want to use it somewhere else)
+import matplotlib.pyplot as plt
 from transformers import pipeline
-from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
-import plotly.graph_objects as go  # For improved confidence visualization
+from serpapi import GoogleSearch
+import plotly.graph_objects as go
+
+# Get API key from Streamlit secrets
+api_key = st.secrets["SERPAPI_KEY"]
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -19,7 +22,6 @@ def load_summarizer():
 
 summarizer = load_summarizer()
 
-# --- Expanded Trusted sources list ---
 TRUSTED_SOURCES = [
     "bbc.com",
     "reuters.com",
@@ -27,6 +29,7 @@ TRUSTED_SOURCES = [
     "cnn.com",
     "indiatoday.in",
     "thehindu.com",
+    "indianexpress.com",
     "timesofindia.indiatimes.com",
     "hindustantimes.com",
     "aljazeera.com",
@@ -47,25 +50,22 @@ TRUSTED_SOURCES = [
     "thewire.in"
 ]
 
-# --- Text cleaning ---
 def clean_text(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
-# --- Trusted source checker with partial matching ---
 def is_trusted_source(url):
     domain = urlparse(url).netloc.replace("www.", "").lower()
     return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
 
-# --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
     matches = []
     try:
         params = {
             "engine": "google",
             "q": query,
-            "api_key": "4094c609a9bf63a1576c56a51453ff1ae4ecfa9b8ad08d333a2d15884e3dbdda",  # Replace with your SerpAPI key
+            "api_key": api_key,  # Use secret here
             "num": max_results
         }
         search = GoogleSearch(params)
@@ -84,7 +84,7 @@ def search_news(query, max_results=5):
                 text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
                 if text_snippet.strip():
                     matches.append((url, text_snippet))
-                time.sleep(1)  # To avoid hammering servers
+                time.sleep(1)
             except Exception as e:
                 print(f"Error processing {url}: {e}")
                 continue
@@ -92,7 +92,6 @@ def search_news(query, max_results=5):
         st.error(f"❌ Search error: {e}")
     return matches
 
-# --- Evaluation Logic ---
 def evaluate_news(query):
     matches = search_news(query)
     trusted_hits = []
@@ -113,7 +112,6 @@ def evaluate_news(query):
     confidence = round((len(trusted_hits) / total_hits) * 100, 2)
     status = "REAL" if confidence >= 50 else "FAKE"
 
-    # Use trusted or fallback to all matches
     all_text = ' '.join(snippet for _, snippet in trusted_hits or matches)
     clean_input = clean_text(all_text)
     if len(clean_input.split()) > 20:
@@ -131,7 +129,6 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
@@ -155,10 +152,7 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-
-        # Advanced visualization using Plotly
         fig = go.Figure()
-
         fig.add_trace(go.Indicator(
             mode="gauge+number+delta",
             value=result['confidence'],
@@ -178,7 +172,6 @@ if query:
                 }
             }
         ))
-
         fig.update_layout(height=300)
         st.plotly_chart(fig, use_container_width=True)
 
