@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from transformers import pipeline
 from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
-import plotly.graph_objects as go  # For confidence gauge
+import plotly.graph_objects as go  # For animated confidence gauge
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -131,35 +131,82 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Static confidence gauge using Plotly ---
-def static_confidence_gauge(confidence, status):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=confidence,
-        title={'text': "Confidence (%)", 'font': {'size': 20}},
-        gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
-            'bar': {'color': "green" if status == 'REAL' else "red"},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "gray",
-            'steps': [
-                {'range': [0, 49], 'color': '#ffcccc'},  # light red
-                {'range': [50, 100], 'color': '#ccffcc'},  # light green
-            ],
-            'threshold': {
-                'line': {'color': "blue", 'width': 4},
-                'thickness': 0.75,
-                'value': 50,
+# --- Animated confidence gauge using Plotly ---
+def animated_confidence_gauge(confidence, status):
+    bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"  # green or red
+    step_colors = ["#d5f5e3", "#abebc6", "#82d18a", "#52c41a", "#2ecc71"] if status == "REAL" else ["#fdecea", "#f9bdbb", "#f38a7d", "#ed6a5a", "#e74c3c"]
+
+    steps = 30  # number of frames for animation
+    values = [confidence * i / steps for i in range(steps + 1)]
+
+    frames = []
+    for val in values:
+        frames.append(go.Frame(data=[go.Indicator(
+            mode="gauge+number+delta",
+            value=val,
+            number={'font': {'size': 48, 'color': bar_color}, 'suffix': "%"},
+            delta={'reference': 50, 'increasing': {'color': "#2ecc71"}, 'decreasing': {'color': "#e74c3c"}},
+            title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'color': 'black'}},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray", 'nticks': 10},
+                'bar': {'color': bar_color, 'thickness': 0.3},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "lightgray",
+                'steps': [
+                    {'range': [0, 20], 'color': step_colors[0]},
+                    {'range': [20, 40], 'color': step_colors[1]},
+                    {'range': [40, 60], 'color': step_colors[2]},
+                    {'range': [60, 80], 'color': step_colors[3]},
+                    {'range': [80, 100], 'color': step_colors[4]},
+                ],
+                'threshold': {
+                    'line': {'color': "blue", 'width': 5},
+                    'thickness': 0.85,
+                    'value': 50,
+                }
             }
-        },
-        number={'font': {'size': 48, 'color': 'black'}}
-    ))
+        )]))
+
+    fig = go.Figure(
+        data=frames[0].data,
+        frames=frames[1:]
+    )
 
     fig.update_layout(
         height=350,
         margin={'t': 50, 'b': 0, 'l': 0, 'r': 0},
-        font=dict(family="Arial", color="black")
+        paper_bgcolor='rgba(240,240,240,0.95)',
+        font=dict(family="Helvetica, Arial, sans-serif", color="black"),
+        annotations=[
+            dict(
+                x=0.5,
+                y=0,
+                showarrow=False,
+                text="Threshold at 50% confidence",
+                font=dict(size=12, color="blue"),
+                xanchor='center',
+                yanchor='top',
+            )
+        ],
+        updatemenus=[{
+            'type': 'buttons',
+            'showactive': False,
+            'buttons': [],
+            'visible': False,  # hide buttons
+        }]
+    )
+
+    # Trick to autoplay animation on load without controls
+    fig.update_layout(
+        sliders=[],
+        updatemenus=[]
+    )
+
+    # The animation settings: play all frames on load
+    fig.layout.update(
+        transition={'duration': 50, 'easing': 'linear'},
+        frame={'duration': 50, 'redraw': True},
     )
 
     return fig
@@ -188,8 +235,8 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-        fig = static_confidence_gauge(result['confidence'], result['status'])
-        st.plotly_chart(fig, use_container_width=True)
+        fig = animated_confidence_gauge(result['confidence'], result['status'])
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
