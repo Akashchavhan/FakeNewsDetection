@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import matplotlib.pyplot as plt
 from transformers import pipeline
-from serpapi import GoogleSearch  # New import
+from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -18,10 +18,32 @@ def load_summarizer():
 
 summarizer = load_summarizer()
 
-# --- Trusted sources list ---
+# --- Expanded Trusted sources list ---
 TRUSTED_SOURCES = [
-    "bbc.com", "reuters.com", "ndtv.com", "cnn.com", "indiatoday.in",
-    "thehindu.com", "timesofindia.indiatimes.com", "hindustantimes.com"
+    "bbc.com",
+    "reuters.com",
+    "ndtv.com",
+    "cnn.com",
+    "indiatoday.in",
+    "thehindu.com",
+    "timesofindia.indiatimes.com",
+    "hindustantimes.com",
+    "aljazeera.com",
+    "apnews.com",
+    "foxnews.com",
+    "washingtonpost.com",
+    "nytimes.com",
+    "economictimes.indiatimes.com",
+    "scroll.in",
+    "bbc.co.uk",
+    "cbc.ca",
+    "theguardian.com",
+    "cnbc.com",
+    "dw.com",
+    "npr.org",
+    "bbcnews.com",
+    "news18.com",
+    "thewire.in"
 ]
 
 # --- Text cleaning ---
@@ -30,10 +52,10 @@ def clean_text(text):
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
-# --- Trusted source checker ---
+# --- Trusted source checker with partial matching ---
 def is_trusted_source(url):
-    domain = urlparse(url).netloc.replace("www.", "")
-    return domain in TRUSTED_SOURCES
+    domain = urlparse(url).netloc.replace("www.", "").lower()
+    return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
 
 # --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
@@ -42,7 +64,7 @@ def search_news(query, max_results=5):
         params = {
             "engine": "google",
             "q": query,
-            "api_key": "4094c609a9bf63a1576c56a51453ff1ae4ecfa9b8ad08d333a2d15884e3dbdda",  # Replace here with your SerpAPI key
+            "api_key": "4094c609a9bf63a1576c56a51453ff1ae4ecfa9b8ad08d333a2d15884e3dbdda",  # Replace with your SerpAPI key
             "num": max_results
         }
         search = GoogleSearch(params)
@@ -140,4 +162,3 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
-
