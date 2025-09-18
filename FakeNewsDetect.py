@@ -103,14 +103,14 @@ def evaluate_news(query):
         "summary": summary
     }
 
+# 🔥 Gauge animation with redraw
 def animated_confidence_gauge(confidence, status):
     bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
+    placeholder = st.empty()
 
-    # Animation frames (0 → confidence)
-    steps = [i for i in range(0, int(confidence)+1, max(1, int(confidence/30)))]
-    frames = [
-        go.Frame(
-            data=[go.Indicator(
+    for val in range(0, int(confidence) + 1, 2):  # step=2 for smoothness
+        fig = go.Figure(
+            go.Indicator(
                 mode="gauge+number",
                 value=val,
                 number={'suffix': "%", 'font': {'size': 52, 'color': bar_color, "family": "Arial Black"}},
@@ -123,47 +123,21 @@ def animated_confidence_gauge(confidence, status):
                     'steps': [
                         {'range': [0, 50], 'color': "rgba(231, 76, 60,0.1)"},
                         {'range': [50, 100], 'color': "rgba(46, 204, 113,0.1)"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "blue", 'width': 3},
-                        'thickness': 0.8,
-                        'value': 50
-                    }
+                    ]
                 }
-            )],
-            name=str(val)
-        ) for val in steps
-    ]
+            )
+        )
 
-    fig = go.Figure(
-        data=[go.Indicator(
-            mode="gauge+number",
-            value=0,
-            number={'suffix': "%", 'font': {'size': 52, 'color': bar_color, "family": "Arial Black"}},
-            title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'family': "Arial"}},
-            gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
-                'bar': {'color': bar_color, 'thickness': 0.25},
-                'bgcolor': "white",
-                'borderwidth': 0
-            }
-        )],
-        frames=frames
-    )
+        fig.update_layout(
+            height=350,
+            margin=dict(t=40, b=20, l=10, r=10),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            template='plotly_white',
+        )
 
-    # Autoplay animation (no buttons or sliders)
-    fig.update_layout(
-        height=350,
-        margin=dict(t=40, b=20, l=10, r=10),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        template='plotly_white',
-        transition={"duration": 30, "easing": "cubic-in-out"},
-    )
-
-    fig.update(frames=frames)
-
-    return fig
+        placeholder.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        time.sleep(0.03)  # speed
 
 query = st.text_input("Enter a news headline to verify:")
 
@@ -188,8 +162,7 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-        fig = animated_confidence_gauge(result['confidence'], result['status'])
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        animated_confidence_gauge(result['confidence'], result['status'])
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
