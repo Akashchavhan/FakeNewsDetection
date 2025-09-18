@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from transformers import pipeline
 from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
-import plotly.graph_objects as go  # For animated confidence gauge
+import plotly.graph_objects as go  # For confidence gauge
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -131,68 +131,36 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Animated confidence gauge using Plotly ---
-def animated_confidence_gauge(confidence, status):
-    steps = 30  # Number of animation frames for smoothness
-    values = [confidence * i / steps for i in range(steps + 1)]
-
-    frames = [
-        go.Frame(
-            data=[
-                go.Indicator(
-                    mode="gauge+number",
-                    value=val,
-                    gauge={
-                        'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
-                        'bar': {'color': "green" if status == 'REAL' else "red"},
-                        'bgcolor': "white",
-                        'borderwidth': 2,
-                        'bordercolor': "gray",
-                        'steps': [
-                            {'range': [0, 49], 'color': '#ffcccc'},  # light red
-                            {'range': [50, 100], 'color': '#ccffcc'},  # light green
-                        ],
-                        'threshold': {
-                            'line': {'color': "blue", 'width': 4},
-                            'thickness': 0.75,
-                            'value': 50,
-                        }
-                    },
-                    number={'font': {'size': 48, 'color': 'black'}},
-                    title={'text': "Confidence (%)", 'font': {'size': 20}},
-                )
-            ]
-        )
-        for val in values
-    ]
-
-    # Initial data - gauge at 0
-    fig = go.Figure(
-        data=frames[0].data,
-        frames=frames[1:],
-    )
+# --- Static confidence gauge using Plotly ---
+def static_confidence_gauge(confidence, status):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=confidence,
+        title={'text': "Confidence (%)", 'font': {'size': 20}},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
+            'bar': {'color': "green" if status == 'REAL' else "red"},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray",
+            'steps': [
+                {'range': [0, 49], 'color': '#ffcccc'},  # light red
+                {'range': [50, 100], 'color': '#ccffcc'},  # light green
+            ],
+            'threshold': {
+                'line': {'color': "blue", 'width': 4},
+                'thickness': 0.75,
+                'value': 50,
+            }
+        },
+        number={'font': {'size': 48, 'color': 'black'}}
+    ))
 
     fig.update_layout(
         height=350,
         margin={'t': 50, 'b': 0, 'l': 0, 'r': 0},
-        font=dict(family="Arial", color="black"),
-        updatemenus=[],  # No play buttons
-        transition={'duration': 50, 'easing': 'linear'},
-        sliders=[{
-            "steps": [
-                {"method": "animate", "label": f"{int(v)}", "args": [[f"{i}"], {"mode": "immediate"}]}
-                for i, v in enumerate(values)
-            ],
-            "transition": {"duration": 0},
-            "x": 0,
-            "y": 0,
-            "currentvalue": {"visible": False},
-            "len": 0
-        }],
+        font=dict(family="Arial", color="black")
     )
-
-    fig.layout['sliders'][0].update({"active": 0})
-    fig.layout['uirevision'] = 'constant'
 
     return fig
 
@@ -220,7 +188,7 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-        fig = animated_confidence_gauge(result['confidence'], result['status'])
+        fig = static_confidence_gauge(result['confidence'], result['status'])
         st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
