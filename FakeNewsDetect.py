@@ -1,7 +1,4 @@
 import streamlit as st
-st.set_page_config(page_title="Fake News Verifier", layout="centered")
-st.title("📰 Advanced Fake News Detector")
-
 import re
 import requests
 import time
@@ -10,6 +7,9 @@ from urllib.parse import urlparse
 from transformers import pipeline
 from serpapi import GoogleSearch
 import plotly.graph_objects as go
+
+st.set_page_config(page_title="Fake News Verifier", layout="centered")
+st.title("📰 Advanced Fake News Detector")
 
 @st.cache_resource
 def load_summarizer():
@@ -100,66 +100,44 @@ def evaluate_news(query):
 
 def animated_confidence_gauge(confidence, status):
     bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=0,  # start at 0, will animate to actual confidence
-        number={'suffix': "%", 'font': {'size': 48, 'color': bar_color}},
-        delta={'reference': 50, 'increasing': {'color': "#2ecc71"}, 'decreasing': {'color': "#e74c3c"}},
-        title={'text': "<b>Confidence</b>", 'font': {'size': 24}},
-        gauge={
-            'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
-            'bar': {'color': bar_color, 'thickness': 0.3},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "lightgray",
-            'steps': [
-                {'range': [0, 20], 'color': "#fdecea"},
-                {'range': [20, 40], 'color': "#f9bdbb"},
-                {'range': [40, 60], 'color': "#f38a7d"},
-                {'range': [60, 80], 'color': "#ed6a5a"},
-                {'range': [80, 100], 'color': "#e74c3c"} if status == "FAKE" else {'range': [80, 100], 'color': "#2ecc71"},
-            ],
-            'threshold': {
-                'line': {'color': "blue", 'width': 4},
-                'thickness': 0.75,
-                'value': 50
+    fig = go.Figure(
+        data=[go.Indicator(
+            mode="gauge+number+delta",
+            value=confidence,
+            number={'suffix': "%", 'font': {'size': 48, 'color': bar_color}},
+            delta={'reference': 50, 'increasing': {'color': "#2ecc71"}, 'decreasing': {'color': "#e74c3c"}},
+            title={'text': "<b>Confidence</b>", 'font': {'size': 24}},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
+                'bar': {'color': bar_color, 'thickness': 0.3},
+                'bgcolor': "rgba(0,0,0,0)",
+                'borderwidth': 2,
+                'bordercolor': "lightgray",
+                'steps': [
+                    {'range': [0, 20], 'color': "#fdecea"},
+                    {'range': [20, 40], 'color': "#f9bdbb"},
+                    {'range': [40, 60], 'color': "#f38a7d"},
+                    {'range': [60, 80], 'color': "#ed6a5a"},
+                    {'range': [80, 100], 'color': "#e74c3c"} if status == "FAKE" else {'range': [80, 100], 'color': "#2ecc71"},
+                ],
+                'threshold': {
+                    'line': {'color': "blue", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 50
+                }
             }
-        }
-    ))
-
-    # Animate using frame generator
-    frames = [go.Frame(data=[go.Indicator(value=v)]) for v in range(0, int(confidence) + 1)]
-    fig.frames = frames
+        )]
+    )
 
     fig.update_layout(
         height=350,
         margin=dict(t=40, b=20, l=10, r=10),
-        paper_bgcolor='white',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
         template='plotly_white',
-        updatemenus=[dict(
-            type="buttons",
-            showactive=False,
-            buttons=[dict(label="Play", method="animate", args=[None, {
-                "frame": {"duration": 30, "redraw": True},
-                "fromcurrent": True,
-                "transition": {"duration": 0}
-            }])],
-            x=0.1, y=0
-        )],
-        sliders=[{
-            "steps": [{
-                "args": [[f.name], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
-                "label": str(i),
-                "method": "animate"
-            } for i, f in enumerate(fig.frames)],
-            "transition": {"duration": 0},
-            "x": 0, "len": 1.0
-        }]
     )
-
     return fig
 
-# --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
