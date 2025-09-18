@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import matplotlib.pyplot as plt
 from transformers import pipeline
-from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
+from serpapi import GoogleSearch
+import plotly.graph_objects as go  # For improved confidence visualization
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -18,32 +19,11 @@ def load_summarizer():
 
 summarizer = load_summarizer()
 
-# --- Expanded Trusted sources list ---
+# --- Trusted sources list ---
 TRUSTED_SOURCES = [
-    "bbc.com",
-    "reuters.com",
-    "ndtv.com",
-    "cnn.com",
-    "indiatoday.in",
-    "thehindu.com",
-    "timesofindia.indiatimes.com",
-    "hindustantimes.com",
-    "aljazeera.com",
-    "apnews.com",
-    "foxnews.com",
-    "washingtonpost.com",
-    "nytimes.com",
-    "economictimes.indiatimes.com",
-    "scroll.in",
-    "bbc.co.uk",
-    "cbc.ca",
-    "theguardian.com",
-    "cnbc.com",
-    "dw.com",
-    "npr.org",
-    "bbcnews.com",
-    "news18.com",
-    "thewire.in"
+    "bbc.com", "reuters.com", "ndtv.com", "cnn.com", "indiatoday.in",
+    "thehindu.com", "timesofindia.indiatimes.com", "hindustantimes.com",
+    "aljazeera.com", "apnews.com", "theguardian.com", "washingtonpost.com"
 ]
 
 # --- Text cleaning ---
@@ -52,10 +32,10 @@ def clean_text(text):
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
-# --- Trusted source checker with partial matching ---
+# --- Trusted source checker ---
 def is_trusted_source(url):
-    domain = urlparse(url).netloc.replace("www.", "").lower()
-    return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
+    domain = urlparse(url).netloc.replace("www.", "")
+    return domain in TRUSTED_SOURCES
 
 # --- SerpAPI Google search + content extraction ---
 def search_news(query, max_results=5):
@@ -130,6 +110,34 @@ def evaluate_news(query):
         "summary": summary
     }
 
+# --- Advanced confidence visualization using Plotly gauge ---
+def plot_confidence_gauge(confidence, status):
+    # Define color based on status
+    bar_color = "green" if status == 'REAL' else "red"
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=confidence,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "Confidence %"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': bar_color},
+            'steps': [
+                {'range': [0, 50], 'color': "lightcoral"},
+                {'range': [50, 75], 'color': "lightyellow"},
+                {'range': [75, 100], 'color': "lightgreen"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': confidence
+            }
+        }
+    ))
+
+    st.plotly_chart(fig, use_container_width=True)
+
 # --- Streamlit Interface ---
 query = st.text_input("Enter a news headline to verify:")
 
@@ -154,11 +162,7 @@ if query:
             st.info("No matches found on trusted news sites.")
 
         st.subheader("Confidence Visualization")
-        fig, ax = plt.subplots()
-        ax.bar(["Confidence"], [result['confidence']], color="green" if result['status'] == 'REAL' else "red")
-        ax.set_ylim([0, 100])
-        ax.set_ylabel("%")
-        st.pyplot(fig)
+        plot_confidence_gauge(result['confidence'], result['status'])
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
