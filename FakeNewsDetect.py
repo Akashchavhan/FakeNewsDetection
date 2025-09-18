@@ -7,11 +7,9 @@ import requests
 import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-import matplotlib.pyplot as plt
 from transformers import pipeline
 from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
 import plotly.graph_objects as go  # For animated confidence gauge
-import streamlit.components.v1 as components  # To inject JS for autoplay
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -28,6 +26,7 @@ TRUSTED_SOURCES = [
     "cnn.com",
     "indiatoday.in",
     "thehindu.com",
+    "indianexpress.com",
     "timesofindia.indiatimes.com",
     "hindustantimes.com",
     "aljazeera.com",
@@ -132,48 +131,68 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Animated confidence gauge using Plotly with autoplay ---
+# --- Animated confidence gauge using Plotly ---
 def animated_confidence_gauge(confidence, status):
-    steps = 20  # Number of animation frames
+    steps = 30  # Number of animation frames for smoothness
     values = [confidence * i / steps for i in range(steps + 1)]
 
-    frames = [go.Frame(data=[go.Indicator(
-                mode="gauge+number+delta",
-                value=val,
-                title={'text': "Confidence (%)"},
-                delta={'reference': 50, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
-                gauge={
-                    'axis': {'range': [0, 100]},
-                    'bar': {'color': "green" if status == 'REAL' else "red"},
-                    'steps': [
-                        {'range': [0, 49], 'color': 'red'},
-                        {'range': [50, 100], 'color': 'green'}
-                    ],
-                    'threshold': {
-                        'line': {'color': "blue", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 50
-                    }
-                }
-            )]) for val in values]
+    frames = [
+        go.Frame(
+            data=[
+                go.Indicator(
+                    mode="gauge+number",
+                    value=val,
+                    gauge={
+                        'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': "darkgray"},
+                        'bar': {'color': "green" if status == 'REAL' else "red"},
+                        'bgcolor': "white",
+                        'borderwidth': 2,
+                        'bordercolor': "gray",
+                        'steps': [
+                            {'range': [0, 49], 'color': '#ffcccc'},  # light red
+                            {'range': [50, 100], 'color': '#ccffcc'},  # light green
+                        ],
+                        'threshold': {
+                            'line': {'color': "blue", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 50,
+                        }
+                    },
+                    number={'font': {'size': 48, 'color': 'black'}},
+                    title={'text': "Confidence (%)", 'font': {'size': 20}},
+                )
+            ]
+        )
+        for val in values
+    ]
 
+    # Initial data - gauge at 0
     fig = go.Figure(
         data=frames[0].data,
         frames=frames[1:],
     )
 
     fig.update_layout(
-        height=300,
-        updatemenus=[{
-            'type': 'buttons',
-            'showactive': False,
-            'buttons': [{
-                'label': 'Play',
-                'method': 'animate',
-                'args': [None, {'frame': {'duration': 50, 'redraw': True}, 'fromcurrent': True, 'transition': {'duration': 0}}],
-            }]
+        height=350,
+        margin={'t': 50, 'b': 0, 'l': 0, 'r': 0},
+        font=dict(family="Arial", color="black"),
+        updatemenus=[],  # No play buttons
+        transition={'duration': 50, 'easing': 'linear'},
+        sliders=[{
+            "steps": [
+                {"method": "animate", "label": f"{int(v)}", "args": [[f"{i}"], {"mode": "immediate"}]}
+                for i, v in enumerate(values)
+            ],
+            "transition": {"duration": 0},
+            "x": 0,
+            "y": 0,
+            "currentvalue": {"visible": False},
+            "len": 0
         }],
     )
+
+    fig.layout['sliders'][0].update({"active": 0})
+    fig.layout['uirevision'] = 'constant'
 
     return fig
 
@@ -203,23 +222,6 @@ if query:
         st.subheader("Confidence Visualization")
         fig = animated_confidence_gauge(result['confidence'], result['status'])
         st.plotly_chart(fig, use_container_width=True)
-
-        # Autoplay animation by injecting JS to click hidden play button automatically
-        components.html(
-            """
-            <script>
-            const plot = document.querySelector("div.js-plotly-plot");
-            if(plot){
-              const btns = plot.querySelectorAll('button[title="Play"]');
-              if(btns.length > 0){
-                btns[0].click();  // Auto-click hidden play button to start animation
-              }
-            }
-            </script>
-            """,
-            height=0,
-            width=0,
-        )
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
