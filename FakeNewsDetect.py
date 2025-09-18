@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from transformers import pipeline
 from serpapi import GoogleSearch  # Make sure serpapi is installed and you have your API key
 import plotly.graph_objects as go  # For animated confidence gauge
+import streamlit.components.v1 as components  # To inject JS for autoplay
 
 # --- Caching the model to avoid reloading ---
 @st.cache_resource
@@ -131,7 +132,7 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# --- Animated confidence gauge using Plotly ---
+# --- Animated confidence gauge using Plotly with autoplay ---
 def animated_confidence_gauge(confidence, status):
     steps = 20  # Number of animation frames
     values = [confidence * i / steps for i in range(steps + 1)]
@@ -171,7 +172,7 @@ def animated_confidence_gauge(confidence, status):
                 'method': 'animate',
                 'args': [None, {'frame': {'duration': 50, 'redraw': True}, 'fromcurrent': True, 'transition': {'duration': 0}}],
             }]
-        }]
+        }],
     )
 
     return fig
@@ -202,6 +203,23 @@ if query:
         st.subheader("Confidence Visualization")
         fig = animated_confidence_gauge(result['confidence'], result['status'])
         st.plotly_chart(fig, use_container_width=True)
+
+        # Autoplay animation by injecting JS to click hidden play button automatically
+        components.html(
+            """
+            <script>
+            const plot = document.querySelector("div.js-plotly-plot");
+            if(plot){
+              const btns = plot.querySelectorAll('button[title="Play"]');
+              if(btns.length > 0){
+                btns[0].click();  // Auto-click hidden play button to start animation
+              }
+            }
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
