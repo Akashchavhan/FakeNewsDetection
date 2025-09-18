@@ -106,28 +106,27 @@ def evaluate_news(query):
 def animated_confidence_gauge(confidence, status):
     bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
 
-    # Create frames for animation (0 → confidence)
-    steps = [i for i in range(0, int(confidence)+1, max(1, int(confidence/20)))]
+    # Animation frames (0 → confidence)
+    steps = [i for i in range(0, int(confidence)+1, max(1, int(confidence/30)))]
     frames = [
         go.Frame(
             data=[go.Indicator(
                 mode="gauge+number",
                 value=val,
-                number={'suffix': "%", 'font': {'size': 48, 'color': bar_color}},
+                number={'suffix': "%", 'font': {'size': 52, 'color': bar_color, "family": "Arial Black"}},
                 title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'family': "Arial"}},
                 gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 1.5, 'tickcolor': "darkgray"},
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
                     'bar': {'color': bar_color, 'thickness': 0.25},
-                    'bgcolor': "rgba(0,0,0,0)",
-                    'borderwidth': 1.5,
-                    'bordercolor': "lightgray",
+                    'bgcolor': "white",
+                    'borderwidth': 0,
                     'steps': [
-                        {'range': [0, 50], 'color': "rgba(231, 76, 60,0.15)"},
-                        {'range': [50, 100], 'color': "rgba(46, 204, 113,0.15)"}
+                        {'range': [0, 50], 'color': "rgba(231, 76, 60,0.1)"},
+                        {'range': [50, 100], 'color': "rgba(46, 204, 113,0.1)"}
                     ],
                     'threshold': {
-                        'line': {'color': "blue", 'width': 4},
-                        'thickness': 0.75,
+                        'line': {'color': "blue", 'width': 3},
+                        'thickness': 0.8,
                         'value': 50
                     }
                 }
@@ -140,51 +139,29 @@ def animated_confidence_gauge(confidence, status):
         data=[go.Indicator(
             mode="gauge+number",
             value=0,
-            number={'suffix': "%", 'font': {'size': 48, 'color': bar_color}},
+            number={'suffix': "%", 'font': {'size': 52, 'color': bar_color, "family": "Arial Black"}},
             title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'family': "Arial"}},
             gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 1.5, 'tickcolor': "darkgray"},
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
                 'bar': {'color': bar_color, 'thickness': 0.25},
-                'bgcolor': "rgba(0,0,0,0)",
-                'borderwidth': 1.5,
-                'bordercolor': "lightgray",
+                'bgcolor': "white",
+                'borderwidth': 0
             }
         )],
         frames=frames
     )
 
-    # Auto-play animation
+    # Autoplay animation (no buttons or sliders)
     fig.update_layout(
         height=350,
         margin=dict(t=40, b=20, l=10, r=10),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         template='plotly_white',
-        updatemenus=[{
-            "type": "buttons",
-            "showactive": False,
-            "x": 0.1,
-            "y": -0.1,
-            "buttons": [{
-                "label": "▶ Play",
-                "method": "animate",
-                "args": [None, {"frame": {"duration": 50, "redraw": True},
-                                "fromcurrent": True, "transition": {"duration": 30, "easing": "cubic-in-out"}}]
-            }]
-        }],
-        sliders=[{
-            "steps": [
-                {"method": "animate", "args": [[str(val)], {"mode": "immediate",
-                                                           "frame": {"duration": 50, "redraw": True},
-                                                           "transition": {"duration": 30}}],
-                 "label": str(val)} for val in steps
-            ],
-            "transition": {"duration": 0},
-            "x": 0.1,
-            "y": -0.2,
-            "len": 0.9
-        }]
+        transition={"duration": 30, "easing": "cubic-in-out"},
     )
+
+    fig.update(frames=frames)
 
     return fig
 
