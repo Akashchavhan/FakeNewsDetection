@@ -86,12 +86,7 @@ def evaluate_news(query):
     clean_input = clean_text(all_text)
     if len(clean_input.split()) > 20:
         try:
-            summary = summarizer(
-                clean_input[:1024],
-                max_length=128,
-                min_length=32,
-                do_sample=False
-            )[0]['summary_text']
+            summary = summarizer(clean_input[:1024], max_length=128, min_length=32, do_sample=False)[0]['summary_text']
         except Exception as e:
             summary = f"Failed to summarize: {e}"
     else:
@@ -103,7 +98,41 @@ def evaluate_news(query):
         "summary": summary
     }
 
-# 🔥 Radial donut progress with animation
+# ---------- Animated Gauge ----------
+def animated_confidence_gauge(confidence, status):
+    bar_color = "#2ecc71" if status == "REAL" else "#e74c3c"
+    placeholder = st.empty()
+
+    for val in range(0, int(confidence) + 1, 2):
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=val,
+                number={'suffix': "%", 'font': {'size': 52, 'color': bar_color, "family": "Arial Black"}},
+                title={'text': "<b>Confidence</b>", 'font': {'size': 24, 'family': "Arial"}},
+                gauge={
+                    'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
+                    'bar': {'color': bar_color, 'thickness': 0.25},
+                    'bgcolor': "white",
+                    'borderwidth': 0,
+                    'steps': [
+                        {'range': [0, 50], 'color': "rgba(231, 76, 60,0.1)"},
+                        {'range': [50, 100], 'color': "rgba(46, 204, 113,0.1)"}
+                    ],
+                }
+            )
+        )
+        fig.update_layout(
+            height=350,
+            margin=dict(t=40, b=20, l=10, r=10),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            template='plotly_white',
+        )
+        placeholder.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        time.sleep(0.03)
+
+# ---------- Animated Donut ----------
 def animated_confidence_donut(confidence, status):
     color = "#2ecc71" if status == "REAL" else "#e74c3c"
     placeholder = st.empty()
@@ -113,11 +142,12 @@ def animated_confidence_donut(confidence, status):
             go.Pie(
                 values=[val, 100 - val],
                 hole=0.7,
-                marker_colors=[color, "lightgray"],
-                textinfo="none"
+                marker_colors=[color, "rgba(200,200,200,0.15)"],
+                textinfo="none",
+                sort=False,  # no flip
+                direction="clockwise"
             )
         ])
-
         fig.update_layout(
             showlegend=False,
             height=350,
@@ -127,10 +157,10 @@ def animated_confidence_donut(confidence, status):
                 x=0.5, y=0.5, font_size=22, showarrow=False
             )]
         )
-
         placeholder.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         time.sleep(0.03)
 
+# ---------------- Main App ----------------
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
@@ -153,8 +183,14 @@ if query:
         else:
             st.info("No matches found on trusted news sites.")
 
+        # Chart selector
+        chart_type = st.radio("Select Visualization:", ["Gauge", "Donut"], horizontal=True)
+
         st.subheader("Confidence Visualization")
-        animated_confidence_donut(result['confidence'], result['status'])
+        if chart_type == "Gauge":
+            animated_confidence_gauge(result['confidence'], result['status'])
+        else:
+            animated_confidence_donut(result['confidence'], result['status'])
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
