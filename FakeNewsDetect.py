@@ -42,7 +42,7 @@ def search_news(query, max_results=5):
         params = {
             "engine": "google",
             "q": query,
-            "api_key": "YOUR_SERPAPI_API_KEY",  # Replace here with your SerpAPI key
+            "api_key": "4094c609a9bf63a1576c56a51453ff1ae4ecfa9b8ad08d333a2d15884e3dbdda",  # Replace here with your SerpAPI key
             "num": max_results
         }
         search = GoogleSearch(params)
@@ -140,3 +140,4 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
+
