@@ -1,7 +1,8 @@
 streamlit
 requests
 beautifulsoup4
-googlesearch-python
+google-search
 transformers
 torch
 matplotlib
+
