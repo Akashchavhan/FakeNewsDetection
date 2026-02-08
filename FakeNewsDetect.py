@@ -14,9 +14,11 @@ st.title("📰 Advanced Fake News Detector")
 # ---------------- SUMMARIZER (FIXED) ----------------
 @st.cache_resource(show_spinner=True)
 def load_summarizer():
+    from transformers import pipeline
     return pipeline(
-        task="text2text-generation",
-        model="google/flan-t5-small"
+        "text2text-generation",
+        model="google/flan-t5-small",
+        device=-1
     )
 
 summarizer = load_summarizer()
@@ -185,3 +187,4 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
+
