@@ -11,9 +11,15 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Fake News Verifier", layout="centered")
 st.title("📰 Advanced Fake News Detector")
 
-@st.cache_resource
+@st.cache_resource(show_spinner=True)
 def load_summarizer():
-    return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+    from transformers import pipeline
+    return pipeline(
+        task="summarization",
+        model="sshleifer/distilbart-cnn-12-6",
+        framework="pt",
+        device=-1
+    )
 
 summarizer = load_summarizer()
 
@@ -154,3 +160,4 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
+
