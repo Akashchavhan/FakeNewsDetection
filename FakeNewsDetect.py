@@ -4,24 +4,38 @@ import requests
 import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from transformers import pipeline
 from serpapi import GoogleSearch
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Fake News Verifier", layout="centered")
 st.title("📰 Advanced Fake News Detector")
 
-# ---------------- SUMMARIZER (FIXED) ----------------
-@st.cache_resource(show_spinner=True)
-def load_summarizer():
-    from transformers import pipeline
-    return pipeline(
-        "text2text-generation",
-        model="google/flan-t5-small",
-        device=-1
-    )
+# ---------------- HUGGINGFACE API SUMMARIZER ----------------
+def generate_summary(text):
+    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+    headers = {
+        "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"
+    }
 
-summarizer = load_summarizer()
+    payload = {
+        "inputs": f"summarize: {text[:1024]}",
+        "parameters": {
+            "max_length": 120,
+            "min_length": 30
+        }
+    }
+
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        result = response.json()
+
+        if isinstance(result, list):
+            return result[0]["generated_text"]
+        else:
+            return "Summary unavailable."
+
+    except Exception as e:
+        return f"Summarization error: {e}"
 
 # ---------------- TRUSTED SOURCES ----------------
 TRUSTED_SOURCES = [
@@ -108,17 +122,8 @@ def evaluate_news(query):
     all_text = ' '.join(snippet for _, snippet in trusted_hits or matches)
     clean_input = clean_text(all_text)
 
-    # ----------- SUMMARIZATION FIX -----------
     if len(clean_input.split()) > 20:
-        try:
-            summary = summarizer(
-                f"summarize: {clean_input[:1024]}",
-                max_length=120,
-                min_length=30,
-                do_sample=False
-            )[0]['generated_text']
-        except Exception as e:
-            summary = f"Failed to summarize: {e}"
+        summary = generate_summary(clean_input)
     else:
         summary = "Not enough data to generate a reliable summary."
 
@@ -187,4 +192,3 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
-
