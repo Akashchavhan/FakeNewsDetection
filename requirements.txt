@@ -1,8 +1,6 @@
-streamlit==1.32.0
+streamlit
 requests
 beautifulsoup4
 google-search-results
-transformers==4.36.2
-sentencepiece
 plotly
 matplotlib
