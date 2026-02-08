@@ -11,18 +11,17 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Fake News Verifier", layout="centered")
 st.title("📰 Advanced Fake News Detector")
 
+# ---------------- SUMMARIZER (FIXED) ----------------
 @st.cache_resource(show_spinner=True)
 def load_summarizer():
-    from transformers import pipeline
     return pipeline(
-        task="summarization",
-        model="sshleifer/distilbart-cnn-12-6",
-        framework="pt",
-        device=-1
+        task="text2text-generation",
+        model="google/flan-t5-small"
     )
 
 summarizer = load_summarizer()
 
+# ---------------- TRUSTED SOURCES ----------------
 TRUSTED_SOURCES = [
     "bbc.com", "reuters.com", "ndtv.com", "cnn.com", "indiatoday.in",
     "thehindu.com", "timesofindia.indiatimes.com", "hindustantimes.com",
@@ -32,15 +31,18 @@ TRUSTED_SOURCES = [
     "bbcnews.com", "news18.com", "thewire.in", "indianexpress.com"
 ]
 
+# ---------------- TEXT CLEANING ----------------
 def clean_text(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'\W', ' ', text)
     return text.lower()
 
+# ---------------- TRUST CHECK ----------------
 def is_trusted_source(url):
     domain = urlparse(url).netloc.replace("www.", "").lower()
     return any(trusted_domain in domain for trusted_domain in TRUSTED_SOURCES)
 
+# ---------------- SEARCH NEWS ----------------
 def search_news(query, max_results=5):
     matches = []
     try:
@@ -52,33 +54,44 @@ def search_news(query, max_results=5):
         }
         search = GoogleSearch(params)
         results = search.get_dict()
+
         for result in results.get('organic_results', [])[:max_results]:
             url = result.get('link')
             if not url or not url.startswith("http"):
                 continue
+
             try:
                 response = requests.get(url, timeout=10)
                 if response.status_code != 200:
                     continue
+
                 soup = BeautifulSoup(response.text, 'html.parser')
                 paragraphs = soup.find_all('p')
                 text_snippet = ' '.join([p.get_text() for p in paragraphs[:5]])
+
                 if text_snippet.strip():
                     matches.append((url, text_snippet))
+
                 time.sleep(1)
+
             except Exception:
                 continue
+
     except Exception as e:
         st.error(f"❌ Search error: {e}")
+
     return matches
 
+# ---------------- EVALUATE NEWS ----------------
 def evaluate_news(query):
     matches = search_news(query)
     trusted_hits = []
     total_hits = len(matches)
+
     for url, snippet in matches:
         if is_trusted_source(url):
             trusted_hits.append((url, snippet))
+
     if total_hits == 0:
         return {
             "status": "Unable to verify",
@@ -86,17 +99,27 @@ def evaluate_news(query):
             "matches": [],
             "summary": "No data found to summarize."
         }
+
     confidence = round((len(trusted_hits) / total_hits) * 100, 2)
     status = "REAL" if confidence >= 50 else "FAKE"
+
     all_text = ' '.join(snippet for _, snippet in trusted_hits or matches)
     clean_input = clean_text(all_text)
+
+    # ----------- SUMMARIZATION FIX -----------
     if len(clean_input.split()) > 20:
         try:
-            summary = summarizer(clean_input[:1024], max_length=128, min_length=32, do_sample=False)[0]['summary_text']
+            summary = summarizer(
+                f"summarize: {clean_input[:1024]}",
+                max_length=120,
+                min_length=30,
+                do_sample=False
+            )[0]['generated_text']
         except Exception as e:
             summary = f"Failed to summarize: {e}"
     else:
         summary = "Not enough data to generate a reliable summary."
+
     return {
         "status": status,
         "confidence": confidence,
@@ -120,6 +143,7 @@ def animated_confidence_donut(confidence, status):
                 direction="clockwise"
             )
         ])
+
         fig.update_layout(
             showlegend=False,
             height=350,
@@ -129,10 +153,11 @@ def animated_confidence_donut(confidence, status):
                 x=0.5, y=0.5, font_size=22, showarrow=False
             )]
         )
+
         placeholder.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         time.sleep(0.03)
 
-# ---------------- Main App ----------------
+# ---------------- MAIN APP ----------------
 query = st.text_input("Enter a news headline to verify:")
 
 if query:
@@ -160,4 +185,3 @@ if query:
 
     except Exception as e:
         st.error(f"🚨 Unexpected error: {e}")
-
