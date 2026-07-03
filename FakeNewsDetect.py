@@ -19,17 +19,26 @@ def generate_summary(text):
             api_key=st.secrets["HUGGINGFACE_API_KEY"]
         )
 
-        result = client.text_generation(
-            f"Summarize this news:\n\n{text[:1000]}",
-            model="google/flan-t5-small",
-            max_new_tokens=120
+        messages = [
+            {
+                "role": "user",
+                "content": f"Summarize the following news article in 3-5 concise sentences:\n\n{text[:2000]}"
+            }
+        ]
+
+        response = client.chat_completion(
+            model="microsoft/Phi-3-mini-4k-instruct",
+            messages=messages,
+            max_tokens=150
         )
 
-        return result
+        return response.choices[0].message.content
 
-    except Exception:
-        return traceback.format_exc()
-
+    except Exception as e:
+        sentences = text.split(". ")
+        if len(sentences) > 5:
+            return ". ".join(sentences[:5]) + "."
+        return text[:500]
 # ---------------- TRUSTED SOURCES ----------------
 TRUSTED_SOURCES = [
     "bbc.com", "reuters.com", "ndtv.com", "cnn.com", "indiatoday.in",
