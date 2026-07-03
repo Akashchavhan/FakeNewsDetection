@@ -4,3 +4,4 @@ beautifulsoup4
 google-search-results
 plotly
 matplotlib
+huggingface_hub
