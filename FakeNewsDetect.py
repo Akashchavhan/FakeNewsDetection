@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from serpapi import GoogleSearch
 from huggingface_hub import InferenceClient
+import traceback
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Fake News Verifier", layout="centered")
@@ -21,13 +22,13 @@ def generate_summary(text):
         result = client.text_generation(
             f"Summarize this news:\n\n{text[:1000]}",
             model="google/flan-t5-small",
-            max_new_tokens=120,
+            max_new_tokens=120
         )
 
         return result
 
-    except Exception as e:
-        return f"Summarization error: {e}"
+    except Exception:
+        return traceback.format_exc()
 
 # ---------------- TRUSTED SOURCES ----------------
 TRUSTED_SOURCES = [
