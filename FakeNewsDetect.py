@@ -5,6 +5,7 @@ import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from serpapi import GoogleSearch
+from huggingface_hub import InferenceClient
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Fake News Verifier", layout="centered")
@@ -12,27 +13,18 @@ st.title("📰 Advanced Fake News Detector")
 
 # ---------------- HUGGINGFACE API SUMMARIZER ----------------
 def generate_summary(text):
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
-    headers = {
-        "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"
-    }
-
-    payload = {
-        "inputs": f"summarize: {text[:1024]}",
-        "parameters": {
-            "max_length": 120,
-            "min_length": 30
-        }
-    }
-
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        result = response.json()
+        client = InferenceClient(
+            api_key=st.secrets["HUGGINGFACE_API_KEY"]
+        )
 
-        if isinstance(result, list):
-            return result[0]["generated_text"]
-        else:
-            return "Summary unavailable."
+        result = client.text_generation(
+            f"Summarize this news:\n\n{text[:1000]}",
+            model="google/flan-t5-small",
+            max_new_tokens=120,
+        )
+
+        return result
 
     except Exception as e:
         return f"Summarization error: {e}"
